@@ -1,0 +1,467 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+<head>
+<!-- created by Piers Titus van der Torren, 2010 - http://www.toverlamp.org/static/wickisynth/ -->
+	<title>Tuning exploration, Wicki keyboard and Karplus-Strong synthesizer</title>
+	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+	<script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.2/jquery-ui.min.js"></script>
+	<link href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.2/themes/base/jquery-ui.css" rel="stylesheet" type="text/css"/>
+	<script src="raphael-min.js"></script>
+	
+	<script src="dsp.js"></script>
+	<script src="keyboard.js"></script>
+	<script src="karplusstrong.js"></script>
+	
+	
+	<style type="text/css">
+		.slider { 
+			margin:10px; 
+		}
+		
+		#sliders{
+			width:400px;
+			background-color:#555;
+			padding:10px; 
+		}
+		
+		body{
+			background-color:#333;
+			color:#eee;
+			font:normal 11px verdana;
+		}
+		
+		a{
+			color:#8af;
+		}
+		
+		p{
+			width:700px;
+			margin-bottom:20px;
+		}
+		
+		#generatorSliderBox {
+			font: normal 11px verdana;
+		}
+
+		#keyboard {
+			position: absolute;
+			left: 250px;
+			top: 5px;
+		}
+		
+		#generatorSliderBox .lbl {
+			position: absolute;
+			left: 30px;
+		}
+
+		#generatorSlider {
+			top: 5px;
+		}
+
+		#buffer, #masterVolume {
+			width: 200px;
+		}
+
+		circle.button {
+		   stroke: #006600;
+		   fill:   #00cc00;
+		}
+
+		
+	</style>
+
+  
+<script>  		
+
+// jQuery UI inits
+var reverbOn = true;
+var delayOn = false;
+$(function() {
+	$("#reverb").button();
+	$("#reverb").click(function(){
+		reverbOn = this.checked;
+	});
+	reverbOn = $("#reverb").attr('checked');
+
+	$("#delay").button();
+	$("#delay").click(function(){
+		delayOn = this.checked;
+	});
+	delayOn = $("#delay").attr('checked');
+
+	
+	$("#masterVolumeLabel").html(0.8);
+	$("#masterVolume").slider({ min:0.0, max:1.2, step: 0.01, value:0.8 });
+	$("#masterVolume").bind("slide", function(event, ui) {
+		$("#masterVolumeLabel").html(ui.value);
+		volume.setVolume(ui.value);
+	});		
+
+	
+	
+	$("#bufferLabel").html(prebufferSize + ' samples, ' + (1000*prebufferSize/sampleRate).toFixed(0) + ' ms latency');
+	$("#buffer").slider({ min:1, max:10, step: 1, value:6 });
+	$("#buffer").bind("slide", function(event, ui) {
+		prebufferSize = ui.value * 1024;
+		$("#bufferLabel").html(prebufferSize + ' samples, ' + (1000*prebufferSize/sampleRate).toFixed(0) + ' ms latency');
+	});	
+});
+
+
+
+Volume = function(volume){
+	this.volume = volume;
+}
+
+Volume.prototype.setVolume = function (volume){
+	this.volume = volume;
+}
+
+Volume.prototype.process = function (samples){
+	// change the volume of the samples in place
+	for(var i=0; i<samples.length; i++){
+		samples[i] = samples[i] * this.volume;
+	}
+}
+
+
+
+
+var generator = [700, 1200];
+
+var sampleRate = 44100;
+var bufferSize = 1024; 
+var prebufferSize = 6*1024; // defines the latency
+var currentWritePosition = 0;
+var lastSampleOffset = 0;
+
+// load the synthesizer
+var synthesizer = new KSPlayer(bufferSize, sampleRate);
+
+// load the keyboard
+var keyBoard = new Keyboard(this, function(event){
+	synthesizer.play(event.keyId, event.hz, event.volume);
+
+	lastHz = event.hz;  // for display purposes
+
+	// Updating the screen causes audio stuttering
+	//document.getElementById("data").innerHTML = "Keyboard returns a note at: " + event.hz + " Hz";
+}, function(event){
+	synthesizer.stop(event.keyId);
+}, function(event){synthesizer.setSustain(event);});
+
+keyBoard.setGenerator(generator);
+
+
+
+// Audio processors
+var multiDelay = new MultiDelay(sampleRate*5, sampleRate*0.5, 0.9, 0.4);
+var reverb = new Reverb(sampleRate*5, 3000, 0.9, 0.4, 0.9, 8000);
+var volume = new Volume(0.8);
+
+
+var outputAudio = new Audio();
+
+// function that describes the audio chain
+var currentWritePosition = 0;
+var lastSampleOffset = 0;
+function writeAudio() {
+	var currentSampleOffset = outputAudio.mozCurrentSampleOffset();
+	var playHasStopped = currentSampleOffset == lastSampleOffset; // if audio stopped playing, just send data to trigger it to play again.
+	while (currentSampleOffset + prebufferSize >= currentWritePosition || playHasStopped ) {
+
+		// automatic latency control
+		/*if (playHasStopped) {
+			prebufferSize += 10;
+			//console.log(prebufferSize);
+		} else { 
+			prebufferSize -= .01;
+		}*/
+
+		var audioData = synthesizer.generate();
+		
+		if(delayOn){
+			audioData = multiDelay.process(audioData);
+		}
+		if(reverbOn){
+			audioData = reverb.process(audioData);
+		}
+
+		//volume.process(audioData);
+		
+		var written = outputAudio.mozWriteAudio(audioData);
+		currentWritePosition += written;
+		currentSampleOffset = outputAudio.mozCurrentSampleOffset();
+		playHasStopped = 0;
+		if (written < audioData.length) { // firefox buffer is full, stop writing
+			//console.log('Buffer overflow ' + written + '/' + audioData.length + ' written, buffer: ' + (currentWritePosition - outputAudio.mozCurrentSampleOffset()));
+			return;
+		}
+	}
+	lastSampleOffset = outputAudio.mozCurrentSampleOffset();
+	
+}
+
+// setup audio output
+var audioTimer;
+if(outputAudio.mozSetup) {
+	outputAudio.mozSetup(1, sampleRate);
+	writeAudio(); // initial write
+	var writeInterval = Math.floor(1000 * bufferSize / sampleRate);
+	audioTimer = setInterval(writeAudio, writeInterval);
+	//setInterval(updateScreen, 500); // even high interval screen updating causes stutter
+}
+</script>	
+<script>
+// script for graphical wicki layout
+var paper;
+var buttons;
+var xo = 200;var yo = 140; // offset of center button
+var tunings = {
+	tet5: (1200+1200/5)/2, // 720 
+	//tet22:
+	tet17: (1200+3*1200/17)/2, // 705.88
+	tet53: (1200+9*1200/53)/2, // 701.89
+	pyth: Math.log(1.5)/Math.log(2)*1200, // 701.95
+	tet12: (1200+2*1200/12)/2, // 700 
+	//tet43:
+	tet31: (1200+5*1200/31)/2, // 696.77
+	quart: Math.log(Math.pow(5,1/4))/Math.log(2)*1200, // 696.58
+	//tet50:
+	tet19: (1200+3*1200/19)/2, // 694.74
+	//tet26:
+	tet7: (1200+1200/7)/2     // 685.71
+};
+var genx = [ 20, 0 ];
+var genyFact = 0.07;
+var geny = [ generator[0] * genyFact, generator[1] * genyFact ];
+var button_size = 30;
+var button_spacing = 40;
+
+$(function() {
+	var noteNamesD = ['F', 'C', 'G', 'D', 'A', 'E', 'B'];
+	var accidentals = ['bb', 'b', '', '#', 'x'];
+	//var accidentals = ['𝄫','♭','','♯','𝄪'];
+	//var accidentals = ['&#9837;&#9837;', '&#9837;', '', '&#9839;', 'x'];
+	var noteNames = new Array(noteNamesD.length*accidentals.length);
+	for (var i=0; i<accidentals.length; i++) {
+		for (var j=0; j<noteNamesD.length; j++) {
+			noteNames[i*noteNamesD.length + j] = noteNamesD[j] + accidentals[i];
+		}
+	}
+	nnOffset = 17; // offset of the central D
+
+	paper = Raphael("keyboard", 800, 320);
+
+
+	//var lines = paper.set();
+	//var notenames = paper.set();
+	buttons = {};
+	for (var i=-9; i<=9; i++) {
+	 	for (var j=-9; j<=9; j++) {
+			var x = xo + i*genx[0] + j*genx[1];
+			var y = yo -(i*geny[0] + j*geny[1]);
+			if (y > yo-geny[1]*1.2 && y <= yo+geny[1]*1.2) {
+				var b = paper.set();
+				if ( (i > -4 && i < 4) || i < -8 || i>8 ) {
+				//if ( j & 1 ) { // if j is odd
+					b.push(
+						paper.path("M0 0L400 0"),
+						paper.circle(0, 0, button_size/2).attr({fill:'white'}),
+						paper.text(0, 0, noteNames[i+nnOffset])
+					);
+				} else {
+					b.push(
+						paper.path("M0 0L400 0"),
+						paper.circle(0, 0, button_size/2).attr({fill:'black'}),
+						paper.text(0, 0, noteNames[i+nnOffset]).attr({fill:'white'})
+					);
+				}
+				b.translate(x-b.getBBox().x,y-b.getBBox().y);
+				buttons[i+'_'+j]={button: b, loc: [i,j]};
+			}
+		}
+	}
+
+	$("#generatorSliderLabel").html(generator[0]);
+	$("#generatorSlider").slider({ min:685.7, max:720.0, step: 0.1, value:generator[0], orientation:'vertical' });
+	$("#generatorSlider").bind("slidechange", function(event, ui) {
+		$("#generatorSliderLabel").html(ui.value);
+		generator[0] = ui.value;
+		setGenerator(generator);
+		//geny = [ generator[0] * genyFact, generator[1] * genyFact ];
+		//changeGenerator();
+	});		
+	$("#generatorSlider").bind("slide", function(event, ui) {
+		$("#generatorSliderLabel").html(ui.value);
+		generator[0] = ui.value;
+		setGenerator(generator);
+		//geny = [ generator[0] * genyFact, generator[1] * genyFact ];
+		//changeGenerator();
+	});		
+	for (var t in tunings) {
+		$('#'+t).click(function(){$('#generatorSlider').slider('option','value',tunings[$(this).attr('id')])});
+	}
+});
+
+function cba_b() {
+	genyFact = 0.14;
+	geny = [ generator[0] * genyFact, generator[1] * genyFact ];
+	genx=[-50,-70];
+	changeGenerator();
+	keyBoard.setGenerator([200,100]);
+}
+
+function cba_c() {
+	genyFact = 0.14;
+	geny = [ generator[0] * genyFact, generator[1] * genyFact ];
+	genx=[50,70];
+	changeGenerator();
+	keyBoard.setGenerator([100,-100]);
+}
+
+function wicki() {
+	genyFact = 0.07;
+	geny = [ generator[0] * genyFact, generator[1] * genyFact ];
+	genx = [ 20, 0 ];
+	changeGenerator();
+	keyBoard.setGenerator(generator);
+}
+
+function changeGenerator() 
+// update positions of buttons
+{
+	for (var c in buttons)
+	{
+		var b = buttons[c];
+		var i = b.loc[0];
+		var j = b.loc[1];
+		var x = xo + i*genx[0] + j*genx[1];
+		var y = yo -(i*geny[0] + j*geny[1]);
+		//c.button.attr({x: x, y: y});
+		b=b.button;
+		b.translate(x-b.getBBox().x,y-b.getBBox().y);
+	}
+}
+
+function setGenxYfact(x,yf)
+{
+	genyFact = yf;
+	geny = [ generator[0] * genyFact, generator[1] * genyFact ];
+	genx = x;
+	changeGenerator();
+}
+function setGenyXfact(y,xf)
+{
+	genyFact = xf;
+	genx = [ generator[0] * genyFact, generator[1] * genyFact ];
+	geny = y;
+	changeGenerator();
+}
+function getSecondDist()
+{
+	var x = 2*genx[0] + -1*genx[1];
+	var y = 2*geny[0] + -1*geny[1];
+	return Math.sqrt(x*x+y*y);
+}
+// b_fact slides from terpstra to wicki layout [0-1]
+var b_fact = 1;
+function setGenerator(g)
+{
+	var a = g[0]/g[1];
+	// maxb for wicki style:
+	var maxb = Math.sqrt((2/3)*a - a*a);
+	// minb for terpstra style:
+	var minb = Math.sqrt(-1*a*a + 26*a/21 - 8/21);
+	var b = b_fact * maxb + (1-b_fact) * minb;
+	//var py = button_spacing / Math.sqrt(b*b + a*a - 2*a + 1);
+	var py = button_spacing / Math.sqrt(4*b*b + 4*a*a - 4*a + 1);
+	genx = [b*py, 0];
+	geny = [a*py, py];
+	//geny = [b*py, 0];
+	//genx = [a*py, py];
+	console.log(a,b,py);
+
+	generator = g;
+	//geny = [ generator[0] * genyFact, generator[1] * genyFact ];
+	changeGenerator();
+	keyBoard.setGenerator(generator);
+}
+</script>
+<script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-20429508-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+</head>
+<body>
+
+	<div id="content">
+		<h1>Tuning exploration, Wicki keyboard and Karplus-Strong synthesizer</h1>
+		<h2>In pure JavaScript using the Firefox Audio Data API</h2>
+		<p>This page presents a synthesizer written in JavaScript, which you can control with your qwerty keyboard using the <a href="http://en.wikipedia.org/wiki/Wicki-Hayden_note_layout">Wicki note layout</a>. You need Firefox version 4 beta or higher.</p>
+
+<p>This project is inspired by the <a href="http://blog.igetitmusic.com/2010/02/exploretuning1.html">tuning exploration Flash app by Jim Plamondon</a>, whose site contains more explanation and interesting thoughts about music theory.
+Take a look there also for a reference for the note layout.
+Another interesting synthesizer with dynamic tuning and using the Wicki layout is <a href="http://dynamictonality.com/2032.htm">2032</a>, featuring dynamic tonality, but besides that also being a good free synthesizer that stimulates exploration. Also you may still get excited about the <a href="http://www.thummer.com/">Thummer</a>, even though the company sadly didn't make it.</p>
+
+<p>The <a href="http://code.almeros.com/code-examples/sampler-firefox-audio-api/">SamplePlayer from Almer Thie</a> served as a coding base, including the reverb and delay effects. Thanks!</p>
+
+<p>If you have comments please leave them at my <a href="http://www.toverlamp.org/2010/12/javascript-synthesizer/">blog</a> or send a message to pierstitus@gmail.com.
+Also if you use parts of the code I'd appreciate it if you send me a note. The synthesizer is using the Karplus Strong algorithm, which is a simple physical simulation of a plucked string. The code is open source and is released under GPL.
+<br/>
+created by Piers Titus van der Torren, 2010</p>
+		<p></p>
+		<div id='generatorSliderBox' style='position:relative; height: 320px'>
+			<div class="slider" id="generatorSlider" style='height: 280px;margin-top:5px'></div><span id="generatorSliderLabel"></span>
+			<div class='lbl' style='top: 0px' id='tet5'>5-tet (Indonesian slendro)</div>
+			<div class='lbl' style='top: 113px' id='tet17'>17-tet</div>
+			<div class='lbl' style='display:none; top: 128px' id='tet53'>53-tet (Turkish)</div>
+			<div class='lbl' style='top: 144px' id='pyth'>Pythagorean (pure fifth)</div>
+			<div class='lbl' style='top: 160px' id='tet12'>12-tet (Western)</div>
+			<div class='lbl' style='top: 185px' id='tet31'>31-tet</div>
+			<div class='lbl' style='top: 194px;left: 30px' id='quart'>1/4 comma meantone (pure major third)</div>
+			<div class='lbl' style='top: 208px' id='tet19'>19-tet</div>
+			<div class='lbl' style='top: 278px' id='tet7'>7-tet (Thai, Mandinka balafon)</div>
+
+			<div id="keyboard"></div>
+
+			<div id="data"></div>
+		</div>
+		
+		<p>Drag the slider to change the tuning within the <a href="http://en.wikipedia.org/wiki/Syntonic_temperament">syntonic tuning continuum</a>, or click on the presets.
+		</p><p>
+		In the visual note layout the pitch is on the vertical axis, so it's easy to see the distribution of the notes within an octave.
+		The circle of fifths is on the horizontal axis, so moving left or right changes the <a href="http://en.wikipedia.org/wiki/Key_(music)">key</a> in which is played.
+		The note layout is called DCompose, which has several origins. It refers to the mathematical term decompose, the layout is an orthogonal decomposition of the of the pitch and the circle of fifths. There is the D, the D is the central note in the circle of fifths, and as such the central note on the layout. And of course there is the musical meaning of compose.</p>
+		<p>This note layout is similar to Wicki layout, they can tranform in each other by shearing.
+		</p>
+		<p>
+		You can play on your keyboard using the Wicki button layout. You can press multiple keys and hold keys to sustain them. Further keys:<br/> + = octave up<br/> - = octave down<br/> space = toggle sustain pedal</p>
+		<p>
+		Add some <input type="checkbox" id="reverb"/><label for="reverb">Reverb</label> and/or 
+		<input type="checkbox" id="delay" /><label for="delay">Delay</label>
+		<!-- <br/> and change the volume: 
+		<span id="masterVolumeLabel"></span> <div class="slider" id="masterVolume"></div> -->
+		</p>
+		
+		<p>Latency control, smaller buffersize means lower latency. If the buffersize is too small the audio starts to stutter. If you experience a lot of stuttering make sure your computer is plugged in and try to close other tabs.<br/>
+		Buffer size: <span id="bufferLabel"></span> <div class="slider" id="buffer"></div>
+		</p>
+		
+	</div>
+
+</div>
+		
+		
+	</body>
+</html>

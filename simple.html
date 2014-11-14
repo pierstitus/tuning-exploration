@@ -1,0 +1,194 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+<head>
+<!-- created by Piers Titus van der Torren, 2010 - http://www.toverlamp.org/static/wickisynth/ -->
+	<title>Simple use example of Wicki keyboard and Karplus-Strong synthesizer JavaScript classes</title>
+	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+	<script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.2/jquery-ui.min.js"></script>
+	<link href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.2/themes/base/jquery-ui.css" rel="stylesheet" type="text/css"/>
+	<script src="keyboard.js"></script>
+	<script src="karplusstrong.js"></script>
+	
+
+  
+<script>  		
+
+// jQuery UI inits, set up volume and latency slider
+$(function() {
+	$("#masterVolumeLabel").html(0.8);
+	$("#masterVolume").slider({ min:0.0, max:1.2, step: 0.01, value:0.8 });
+	$("#masterVolume").bind("slide", function(event, ui) {
+		$("#masterVolumeLabel").html(ui.value);
+		volume.setVolume(ui.value);
+	});		
+	
+	$("#bufferLabel").html(prebufferSize + ' samples, ' + (1000*prebufferSize/sampleRate).toFixed(0) + ' ms latency');
+	$("#buffer").slider({ min:1, max:10, step: 1, value:6 });
+	$("#buffer").bind("slide", function(event, ui) {
+		prebufferSize = ui.value * 1024;
+		$("#bufferLabel").html(prebufferSize + ' samples, ' + (1000*prebufferSize/sampleRate).toFixed(0) + ' ms latency');
+	});	
+});
+
+
+// Volume class, example of a very simple audio processor
+Volume = function(volume){
+	this.volume = volume;
+}
+
+Volume.prototype.setVolume = function (volume){
+	this.volume = volume;
+}
+
+Volume.prototype.process = function (samples){
+	// change the volume of the samples in place
+	for(var i=0; i<samples.length; i++){
+		samples[i] = samples[i] * this.volume;
+	}
+}
+
+var volume = new Volume(0.8);
+
+
+// define audio settings
+var sampleRate = 44100;
+var bufferSize = 1024; 
+var prebufferSize = 6*1024; // defines the latency
+
+// load the synthesizer
+var synthesizer = new KSPlayer(bufferSize, sampleRate);
+
+
+// load the keyboard
+var keyBoard
+function loadKeyboard()
+{
+keyboard = new Keyboard(this, function(event){
+	synthesizer.play(event.keyId, event.hz, event.volume);
+}, function(event){
+	synthesizer.stop(event.keyId);
+}, function(event){synthesizer.setSustain(event);});
+}
+
+
+// Stream Management
+var volume = new Volume(0.8);
+
+// 
+var outputAudio = new Audio();
+
+// function that describes the audio chain
+var currentWritePosition = 0;
+var lastSampleOffset = 0;
+function writeAudio() {
+	var currentSampleOffset = outputAudio.mozCurrentSampleOffset();
+	var playHasStopped = currentSampleOffset == lastSampleOffset; // if audio stopped playing, just send data to trigger it to play again.
+	while (currentSampleOffset + prebufferSize >= currentWritePosition || playHasStopped ) {
+		// generate audio
+		var audioData = synthesizer.generate();
+
+		// further processing
+		volume.process(audioData);
+	
+		// write audio	
+		var written = outputAudio.mozWriteAudio(audioData);
+		currentWritePosition += written;//portionSize;
+		currentSampleOffset = outputAudio.mozCurrentSampleOffset();
+		playHasStopped = 0;
+		if (written < audioData.length) { // firefox buffer is full, stop writing
+			//console.log('Buffer overflow ' + written + '/' + audioData.length + ' written, buffer: ' + (currentWritePosition - outputAudio.mozCurrentSampleOffset()));
+			return;
+		}
+	}
+	lastSampleOffset = outputAudio.mozCurrentSampleOffset();
+}
+
+// setup audio output
+if(outputAudio.mozSetup) {
+	outputAudio.mozSetup(1, sampleRate);
+	writeAudio(); // initial write
+	var writeInterval = Math.floor(1000 * bufferSize / sampleRate);
+	setInterval(writeAudio, writeInterval);
+}
+</script>
+<script>
+// simple sequencer
+function playString( noteString, rate )
+{
+var start = new Date().getTime();
+var time = 0;
+var notes = {"A":-12,"B":-10,"C":-9,"D":-7,"E":-5,"F":-4,"G":-2,"a":0,"b":2,"c":3,"d":5,"e":7,"f":8,"g":10};
+var octave = -1;
+var sharp = 0;
+for (var n in noteString)
+{
+	var note = noteString[n];
+	switch(note)
+	{
+	case " ":
+		time += rate;
+		break;
+	case "+":
+		octave++;
+		break;
+	case "-":
+		octave--;
+		break;
+	case "#":
+		sharp++;
+		break;
+	default:
+		var volume = 1;
+		if (note > "Z") { volume = .5; }
+		note = note.toLowerCase();
+		var freq = 440*Math.pow(2,(notes[note] + sharp)/12 + octave);
+
+		var starttime = time - (start - new Date().getTime()); 
+		setTimeout("synthesizer.play('"+note+sharp+octave+"',"+freq+","+volume+")", starttime);
+		setTimeout("synthesizer.stop('"+note+sharp+octave+"')", starttime+2000);
+		sharp = 0;
+	}
+}
+}
+</script>	
+<script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-20429508-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+</head>
+<body>
+<p>This page shows a simple setup to use karplusstrong.js and keyboard.js, for the original tuning exploration app see <a href="wickisynth.html">wickisynth.html</a>
+</p>
+<p> 
+You can enter a tune in the textbox, and press play to play it. [a-g] for notes, # increases next note with a half, spaces represent time (so notes without spaces inbetween are played as chord), + and - shift an octave. Use uppercase for more volume. <br/>
+<input type="text" name="noteinput" id="noteinput" value="-d #d e +C  -e +C  -e +C  c d #d e c d e  b d  c    ce df #d#f EG  f+a- eg  ce df #d#f EG  f+a- eg  e c -g +a b c d e d c d C" style="width: 100%"/><br/>
+<!-- c  d  e  c  c  d  e  c  e  f  g    e  f  g    g a g f e  c  g a g f e  c  c  G  c    c  G  c -->
+tempo: <input type="text" name="rateinput" id="rateinput" value="300" style="width: 3em"/> spaces/min
+<input type="button" value="Play" onClick="playString(document.getElementById('noteinput').value, 60000/parseFloat(document.getElementById('rateinput').value));"/>
+</p>
+		<p>
+		<input type="button" value="grab keyboard" onClick="loadKeyboard();"/>
+		You can play on your keyboard using the Wicki button layout. You can press multiple keys and hold keys to sustain them. Further keys:<br/> + = octave up<br/> - = octave down<br/> space = toggle sustain pedal</p>
+		<p>
+		Change the volume: 
+		<span id="masterVolumeLabel"></span> <div class="slider" id="masterVolume"></div>
+		</p>
+		
+		<p>Latency control, smaller buffersize means lower latency. If the buffersize is too small the audio starts to stutter. If you experience a lot of stuttering make sure your computer is plugged in and try to close other tabs.<br/>
+		Buffer size: <span id="bufferLabel"></span> <div class="slider" id="buffer"></div>
+		</p>
+		
+		
+		
+	</body>
+</html>
