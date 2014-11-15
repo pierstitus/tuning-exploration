@@ -10,18 +10,16 @@
  * Changelog
  *  2010-09: first version
  *  2010-10: added sustain.
+ *  2014-11: Converted to Web Audio API
  */
-KSPlayer = function KSPlayer(bufferSize, sampleRate) {
-	this.bufferSize = bufferSize;
-	this.sampleRate = sampleRate;
+KSPlayer = function KSPlayer(context) {
+	this.sampleRate = context.sampleRate;
 	this.releaseVolume = 0.0001;
 	this.damp = 0.9;
 	this.damp2= 1.0;
 	this.noiseDamp = 0.5;
 
 	this.sustain = false;
-
-	this.signal = new Float32Array(bufferSize);
 
 	// create buffers for resonators (for 16 voices)
 	this.buffers = [];
@@ -34,6 +32,11 @@ KSPlayer = function KSPlayer(bufferSize, sampleRate) {
 	// Note playing states
 	this.PLAYING = 0;
 	this.RELEASING = 1;
+
+	this.context = context;
+    this.node = context.createScriptProcessor(512, 1, 1);
+    var that = this;
+    this.node.onaudioprocess = function(e) { that.generate(e) };
 };
 
 KSPlayer.prototype.setSustain = function(sustain) {
@@ -52,13 +55,15 @@ KSPlayer.prototype.setSustain = function(sustain) {
 	}
 }
 
-KSPlayer.prototype.generate = function() {
+KSPlayer.prototype.generate = function(e) {
+  	var output = e.outputBuffer.getChannelData(0);
+
 	var periodIndex = 0;
 	var previous = 0.0;
 	var sub = 0.0;
 	var damp = this.damp;
-	for (var i = 0; i < this.bufferSize; i++) {
-		this.signal[i] = 0.0; // Initial signal
+	for (var i = 0; i < output.length; i++) {
+		output[i] = 0.0; // Initial signal
 		
 		if(this.polyphonyHolder.length>0) {
 
@@ -109,8 +114,8 @@ KSPlayer.prototype.generate = function() {
 				}
 
 				// linear interpolation (since Karplus Strong originally only supports integer sampleRate/frequency factors)
-				this.signal[i] += (sub * note.current + (1-sub) * note.previous) * note.volume * note.releaseVolume;
-				//this.signal[i] += note.current * note.volume * note.releaseVolume;
+				output[i] += (sub * note.current + (1-sub) * note.previous) * note.volume * note.releaseVolume;
+				//output[i] += note.current * note.volume * note.releaseVolume;
 
 			}
 		} 
@@ -125,9 +130,7 @@ KSPlayer.prototype.generate = function() {
 			this.buffers.push(note.period);
 			this.polyphonyHolder.splice(j,1);	
 		} 
-	}	
-	
-	return this.signal;
+	}
 };
 
 KSPlayer.prototype.play = function(noteStopId, frequency, volume) {	
@@ -188,3 +191,11 @@ KSPlayer.prototype.stop = function(noteStopId) {
 		
 	}
 };
+
+KSPlayer.prototype.start = function() {
+  this.node.connect(this.context.destination);
+}
+
+KSPlayer.prototype.pause = function() {
+  this.node.disconnect();
+}
