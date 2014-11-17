@@ -117,17 +117,20 @@ Keyboard.prototype.keyDown = function(event) {
 	}
 	else
 	{
-	switch(keyId){
-		case '=':
+	switch(event.keyCode){
+		case 61: // +
 			 this.octave++;
 			 return;
-		case 'k':
-			 this.octave++;
-			 return;
-		case 'm':
+		case 173: // -
 			 this.octave--;
 			 return;
-		case ' ':
+		case 107: // keypad +
+			 this.octave++;
+			 return;
+		case 109: // keypad -
+			 this.octave--;
+			 return;
+		case 32: // ' '
 			event.preventDefault();
 			//this.noteSustainListener(true);
 			this.noteSustainListener('switch');
