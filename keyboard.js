@@ -14,7 +14,8 @@ Keyboard = function Keyboard(document, notePlayListener, noteStopListener, noteS
 	this.document = document;
 	this.notePlayListener = notePlayListener;
 	this.noteStopListener = noteStopListener;
-	this.noteSustainListener = noteSustainListener;
+	this.sustain = false;
+	this.sustainedNotes = [];
 	
 	this.octave = 0;
 	this.generator = [700,1200]; // fifth and octave, in cents. Default is 12tet tuning
@@ -92,6 +93,29 @@ Keyboard.prototype.setGenerator = function(generator) {
 	this.generator = generator;
 };
 
+Keyboard.prototype.setSustain = function(sustain) {
+	switch(sustain) {
+		case true:
+		case 'on':
+			this.sustain = true;
+			break;
+		case false:
+		case 'off':
+			this.sustain = false;
+			break;
+		case 'switch':
+			this.sustain = !this.sustain;
+			break;
+	}
+	if (!this.sustain) {
+		for (var i = this.sustainedNotes.length - 1; i >= 0; i--) {
+			this.noteStopListener({keyId:this.sustainedNotes[i]});
+			console.log(this.sustainedNotes[i]);
+		};
+		this.sustainedNotes = [];
+	}
+};
+
 Keyboard.prototype.keyDown = function(event) {	
 	
 	var keyId = String.fromCharCode(event.keyCode);
@@ -132,10 +156,10 @@ Keyboard.prototype.keyDown = function(event) {
 			 return;
 		case 32: // ' '
 			event.preventDefault();
-			//this.noteSustainListener(true);
-			this.noteSustainListener('switch');
+			//this.setSustain(true);
+			this.setSustain('switch');
 			return;
-	}
+		}
 	}
 };
 
@@ -143,7 +167,7 @@ Keyboard.prototype.keyUp = function(event) {
 	var keyId = String.fromCharCode(event.keyCode);
 	this.repeat[keyId] = false; // to disable key repeat
 	//if (keyId == ' ') {
-	//	this.noteSustainListener(false);
+	//	this.setSustain(false);
 	//	return;
 	//}
 	
@@ -151,7 +175,13 @@ Keyboard.prototype.keyUp = function(event) {
 
 	if(loc) {
 		var noteId = 'k'+loc[0] +'_' + (loc[1]+this.octave);
-		this.noteStopListener({keyId:noteId});
+		if (!this.sustain) {
+			this.noteStopListener({keyId:noteId});
+		} else {
+			if (this.sustainedNotes.indexOf(noteId) < 0) {
+				this.sustainedNotes.push(noteId);
+			}
+		}
 	}
 };
 
