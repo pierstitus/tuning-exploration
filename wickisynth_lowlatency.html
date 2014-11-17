@@ -10,8 +10,7 @@
 	<script src="raphael-min.js"></script>
 
 	<script src="keyboard.js"></script>
-	<script src="karplusstrong.js"></script>
-	
+	<script src="oscsynth.js"></script>
 	
 	<style type="text/css">
 		.slider { 
@@ -73,8 +72,7 @@ var generator = [700, 1200];
 // load the synthesizer
 var AudioContext = window.AudioContext || window.webkitAudioContext; // cross browser compatible
 var context = new AudioContext();
-var synthesizer = new KSPlayer(context);
-synthesizer.start();
+var synthesizer = new OscSynth(context);
 
 // load the keyboard
 var keyBoard = new Keyboard(this, function(event){
@@ -284,11 +282,11 @@ function setGenerator(g)
 <body>
 
 	<div id="content">
-		<h1>Tuning exploration, Wicki keyboard and Karplus-Strong synthesizer</h1>
+		<h1>Tuning exploration, Wicki keyboard and sawtooth synthesizer</h1>
 		<h2>In pure JavaScript using the Web Audio API</h2>
 		<p>This page presents a synthesizer written in JavaScript, which you can control with your qwerty keyboard using the <a href="http://en.wikipedia.org/wiki/Wicki-Hayden_note_layout">Wicki note layout</a>. You need at least Firefox 28 or a recent WebKit based browser.</p>
 <blockquote><p><i>Update Nov. 2014: Ported to the newer Web Audio API.<br/>
-Latency can be an issue with the Karplus-Strong synthesizer, there is also a <a href="wickisynth_lowlatency.html">version with a low latency sawtooth wave</a>.<br/>
+Latency was an issue with the <a href="wickisynth.html">Karplus-Strong synthesizer</a>, so this version uses a simple sawtooth wave.<br/>
 Currently I'm working on a physical music instrument with the note layout from the figure below, with similar tuning exploration and much more, see <a href="http://www.striso.org/">www.striso.org</a>.</i></p></blockquote>
 
 <p>This project is inspired by the <a href="http://blog.igetitmusic.com/2010/02/exploretuning1.html">tuning exploration Flash app by Jim Plamondon</a>, whose site contains more explanation and interesting thoughts about music theory.
