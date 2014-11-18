@@ -76,7 +76,7 @@ var synthesizer = new OscSynth(context);
 
 // load the keyboard
 var keyBoard = new Keyboard(this, function(event){
-	synthesizer.play(event.keyId, event.hz, event.volume);
+	synthesizer.play(event.keyId, event.loc, event.volume);
 
 	lastHz = event.hz;  // for display purposes
 
@@ -87,6 +87,7 @@ var keyBoard = new Keyboard(this, function(event){
 }, function(event){synthesizer.setSustain(event);});
 
 keyBoard.setGenerator(generator);
+synthesizer.setGenerator(generator);
 </script>	
 <script>
 // script for graphical wicki layout
@@ -186,6 +187,7 @@ function cba_b() {
 	genx=[-50,-70];
 	changeGenerator();
 	keyBoard.setGenerator([200,100]);
+	synthesizer.setGenerator([200,100]);
 }
 
 function cba_c() {
@@ -194,6 +196,7 @@ function cba_c() {
 	genx=[50,70];
 	changeGenerator();
 	keyBoard.setGenerator([100,-100]);
+	synthesizer.setGenerator([100,-100]);
 }
 
 function wicki() {
@@ -202,6 +205,7 @@ function wicki() {
 	genx = [ 20, 0 ];
 	changeGenerator();
 	keyBoard.setGenerator(generator);
+	synthesizer.setGenerator(generator);
 }
 
 function changeGenerator() 
@@ -245,6 +249,11 @@ var b_fact = 1;
 function setGenerator(g)
 {
 	if (g[0] < 685.7143) g[0] = 685.7143;
+	
+	generator = g;
+	synthesizer.setGenerator(generator);
+	keyBoard.setGenerator(generator);
+
 	var a = g[0]/g[1];
 	// maxb for wicki style:
 	var maxb = Math.sqrt((2/3)*a - a*a);
@@ -257,12 +266,10 @@ function setGenerator(g)
 	geny = [a*py, py];
 	//geny = [b*py, 0];
 	//genx = [a*py, py];
-	console.log(a,b,py);
+	//console.log(a,b,py);
 
-	generator = g;
 	//geny = [ generator[0] * genyFact, generator[1] * genyFact ];
 	changeGenerator();
-	keyBoard.setGenerator(generator);
 }
 </script>
 <script type="text/javascript">

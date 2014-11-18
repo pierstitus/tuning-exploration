@@ -7,6 +7,8 @@
  * Changelog
  *  2010-10-28: added key repeat array for disabling key repeat.
  *              Previous versions of FF4 for linux didn't have key repeat on keyDown, but since now they have it.
+ *  2014-11-18: move sustain to this class
+ *              send note location to keydown event
  */
 Keyboard = function Keyboard(document, notePlayListener, noteStopListener, noteSustainListener) {
 	this.repeat = [];
@@ -110,7 +112,6 @@ Keyboard.prototype.setSustain = function(sustain) {
 	if (!this.sustain) {
 		for (var i = this.sustainedNotes.length - 1; i >= 0; i--) {
 			this.noteStopListener({keyId:this.sustainedNotes[i]});
-			console.log(this.sustainedNotes[i]);
 		};
 		this.sustainedNotes = [];
 	}
@@ -127,14 +128,16 @@ Keyboard.prototype.keyDown = function(event) {
 	}
 	this.repeat[keyId] = true;
 	
-	loc = this.keyMap[keyId];
+	var loc = this.keyMap[keyId];
 
 	if(loc) {
+		loc[1] = loc[1] + this.octave;
 		event.preventDefault();
-		var hz = this.baseFreq * Math.pow(2.0,((loc[1]+this.octave)*this.generator[1] + loc[0]*this.generator[0])/1200.0);
+		var hz = this.baseFreq * Math.pow(2.0,(loc[1]*this.generator[1] + loc[0]*this.generator[0])/1200.0);
 		var noteId = 'k'+loc[0] +'_' + (loc[1]+this.octave);
 		this.notePlayListener({
 			keyId:noteId,
+			loc:loc,
 			hz:hz,
 			volume:1.0
 		});
