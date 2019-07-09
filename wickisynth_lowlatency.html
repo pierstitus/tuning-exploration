@@ -293,17 +293,17 @@ function setGenerator(g)
 		<h2>In pure JavaScript using the Web Audio API</h2>
 		<p>This page presents a synthesizer written in JavaScript, which you can control with your qwerty keyboard using the <a href="http://en.wikipedia.org/wiki/Wicki-Hayden_note_layout">Wicki note layout</a>. You need at least Firefox 28 or a recent WebKit based browser.</p>
 <blockquote><p><i>Update Nov. 2014: Ported to the newer Web Audio API.<br/>
-Latency was an issue with the <a href="wickisynth.html">Karplus-Strong synthesizer</a>, so this version uses a simple sawtooth wave.<br/>
+		Latency was an issue with the <a href="wickisynth.html">Karplus-Strong synthesizer</a>, so this version uses a simple sawtooth wave.<br/><br/>
 Currently I'm working on a physical music instrument with the note layout from the figure below, with similar tuning exploration and much more, see <a href="http://www.striso.org/">www.striso.org</a>.</i></p></blockquote>
 
-<p>This project is inspired by the <a href="http://blog.igetitmusic.com/2010/02/exploretuning1.html">tuning exploration Flash app by Jim Plamondon</a>, whose site contains more explanation and interesting thoughts about music theory.
+<p>This project is inspired by the <a href="http://web.archive.org/web/20130531043807/http://blog.igetitmusic.com/2010/02/exploretuning1.html">tuning exploration Flash app by Jim Plamondon</a>, whose site contains more explanation and interesting thoughts about music theory.
 Take a look there also for a reference for the note layout.
-Another interesting synthesizer with dynamic tuning and using the Wicki layout is <a href="http://dynamictonality.com/2032.htm">2032</a>, featuring dynamic tonality, but besides that also being a good free synthesizer that stimulates exploration. Also you may still get excited about the <a href="http://www.thummer.com/">Thummer</a>, even though the company sadly didn't make it.</p>
-
+Another interesting synthesizer with dynamic tuning and using the Wicki layout is <a href="http://dynamictonality.com/2032.htm">2032</a>, featuring dynamic tonality, but besides that also being a good free synthesizer that stimulates exploration.</p>
 <p>If you have comments, questions or just like the idea please send a message to pierstitus@gmail.com.
 Also if you use parts of the code I'd appreciate it if you send me a note. The synthesizer is using the Karplus Strong algorithm, which is a simple physical simulation of a plucked string. The code is open source and is released under GPL.
-<br/>
-Created by Piers Titus van der Torren, 2010, updated to Web Audio API Nov 2014</p>
+You can find the source at <a href="https://github.com/pierstitus/tuning-exploration">https://github.com/pierstitus/tuning-exploration</a>.
+</p>
+<p>Created by Piers Titus van der Torren, 2010, updated to Web Audio API Nov 2014</p>
 		<p></p>
 		<div id='generatorSliderBox' style='position:relative; height: 320px'>
 			<div class="slider" id="generatorSlider" style='height: 280px;margin-top:5px'></div><span id="generatorSliderLabel"></span>
@@ -326,7 +326,7 @@ Created by Piers Titus van der Torren, 2010, updated to Web Audio API Nov 2014</
 		</p><p>
 		In the visual note layout the pitch is on the vertical axis, so it's easy to see the distribution of the notes within an octave.
 		The circle of fifths is on the horizontal axis, so moving left or right changes the <a href="http://en.wikipedia.org/wiki/Key_(music)">key</a> in which is played.
-		The note layout is called DCompose, which has several origins. It refers to the mathematical term decompose, the layout is an orthogonal decomposition of the of the pitch and the circle of fifths. There is the D, the D is the central note in the circle of fifths, and as such the central note on the layout. And of course there is the musical meaning of compose.</p>
+		The note layout is called DCompose, which has several origins. It refers to the mathematical term decompose, the layout is an orthogonal decomposition of the pitch and the circle of fifths. There is the D, the D is the central note in the circle of fifths, and as such the central note on the layout. And of course there is the musical meaning of compose.</p>
 		<p>This note layout is similar to Wicki layout, they can tranform in each other by shearing.
 		</p>
 		<p>
