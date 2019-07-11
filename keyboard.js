@@ -131,10 +131,10 @@ Keyboard.prototype.keyDown = function(event) {
 	var loc = this.keyMap[keyId];
 
 	if(loc) {
-		loc[1] = loc[1] + this.octave;
+		loc = [loc[0], loc[1] + this.octave];
 		event.preventDefault();
 		var hz = this.baseFreq * Math.pow(2.0,(loc[1]*this.generator[1] + loc[0]*this.generator[0])/1200.0);
-		var noteId = 'k'+loc[0] +'_' + (loc[1]+this.octave);
+		var noteId = 'k' + loc[0] + '_' + loc[1];
 		this.notePlayListener({
 			keyId:noteId,
 			loc:loc,
@@ -178,6 +178,7 @@ Keyboard.prototype.keyUp = function(event) {
 
 	if(loc) {
 		var noteId = 'k'+loc[0] +'_' + (loc[1]+this.octave);
+		console.log(noteId);
 		if (!this.sustain) {
 			this.noteStopListener({keyId:noteId});
 		} else {
